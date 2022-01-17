@@ -1,5 +1,5 @@
 import cheerio, { CheerioAPI } from 'cheerio';
-import { Assignment, Category, CategoryMark, CategoryWeighting, Course, CourseOverview, LoginCredentials, TACredentials } from '.';
+import { Assignment, Strand, StrandMark, StrandWeighting, Course, CourseOverview, LoginCredentials, TACredentials } from '.';
 import fetch from 'node-fetch';
 
 async function fetchTACredentials(credentials: LoginCredentials): Promise<TACredentials> {
@@ -62,7 +62,7 @@ function parseCourseOverviewHTML(html: string): CourseOverview {
 }
 
 function parseAssignmentHTML(html: string): Assignment {
-  const categories: { [key: string]: Category } = {
+  const strandsByColor: { [key: string]: Strand } = {
     'ffffaa': 'k',
     'c0fea4': 't',
     'afafff': 'c',
@@ -80,11 +80,11 @@ function parseAssignmentHTML(html: string): Assignment {
   const marksRegex = new RegExp(marksRegexString, 'g');
   const marksMatches = html.replace(/[\r\n\t]/g, '').matchAll(marksRegex)!;
 
-  const marks: CategoryMark[] = [...marksMatches].map((match) => {
+  const marks: StrandMark[] = [...marksMatches].map((match) => {
     return {
-      category: categories[match[1]],
-      mark: match[2] ? parseFloat(match[2]) : undefined,
-      maxMark: parseFloat(match[3]),
+      strand: strandsByColor[match[1]],
+      marksReceived: match[2] ? parseFloat(match[2]) : undefined,
+      marksTotal: parseFloat(match[3]),
       weight: match[4] ? parseInt(match[4]) : undefined,
     }
   });
@@ -95,8 +95,8 @@ function parseAssignmentHTML(html: string): Assignment {
   }
 }
 
-function parseCategoryWeightingHTML(html: string): CategoryWeighting {
-  const categories: { [key: string]: Category } = {
+function parseStrandWeightingHTML(html: string): StrandWeighting {
+  const strandsByName: { [key: string]: Strand } = {
     'Knowledge/Understanding': 'k',
     'Thinking': 't',
     'Communication': 'c',
@@ -113,7 +113,7 @@ function parseCategoryWeightingHTML(html: string): CategoryWeighting {
   const match = html.replace(/\s/g, '').match(regex)!;
 
   return {
-    category: categories[match[1]],
+    strand: strandsByName[match[1]],
     weighting: match[2] ? parseFloat(match[2]) / 100 : undefined,
     courseWeighting: parseFloat(match[3]) / 100,
     studentAchievement: parseFloat(match[4]),
@@ -149,14 +149,12 @@ async function fetchCourseDetailsPage(subjectId: string, credentials: TACredenti
   return cheerio.load(await res.text())
 }
 
-async function fetchCourseWeightings(subjectId: string, credentials: TACredentials): Promise<CategoryWeighting[]> {
+async function fetchCourseWeightings(subjectId: string, credentials: TACredentials): Promise<StrandWeighting[]> {
   const $ = await fetchCourseDetailsPage(subjectId, credentials);
 
-  const weightings = $('.green_border_message > div > table > tbody > tr > td > table > tbody > tr')
-    .toArray()
-    .slice(1);
+  const weightings = $('.green_border_message > div > table > tbody > tr > td > table > tbody > tr[bgcolor]').toArray();
 
-  return weightings.map((element) => parseCategoryWeightingHTML(cheerio.html(element)));
+  return weightings.map((element) => parseStrandWeightingHTML(cheerio.html(element)));
 }
 
 async function fetchCourseAssignments(subjectId: string, credentials: TACredentials): Promise<Assignment[]> {

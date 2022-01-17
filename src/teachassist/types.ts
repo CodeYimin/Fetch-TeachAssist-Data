@@ -8,7 +8,7 @@ export interface TACredentials {
   sessionToken: string;
 }
 
-export type Category = 'k' | 't' | 'c' | 'a' | 'o' | 'f' | 'o/f';
+export type Strand = 'k' | 't' | 'c' | 'a' | 'o' | 'f' | 'o/f';
 
 export interface ExtraMark {
   name: string;
@@ -29,18 +29,18 @@ export interface CourseOverview {
 
 export interface Assignment {
   name: string;
-  marks: CategoryMark[];
+  marks: StrandMark[];
 }
 
-export interface CategoryMark {
-  mark?: number;
-  maxMark: number;
+export interface StrandMark {
+  marksReceived?: number;
+  marksTotal: number;
   weight?: number;
-  category: Category;
+  strand: Strand;
 }
 
-export interface CategoryWeighting {
-  category: Category,
+export interface StrandWeighting {
+  strand: Strand,
   weighting?: number;
   courseWeighting: number;
   studentAchievement: number;
@@ -48,5 +48,5 @@ export interface CategoryWeighting {
 
 export interface Course extends CourseOverview {
   assignments: Assignment[];
-  weightings: CategoryWeighting[];
+  weightings: StrandWeighting[];
 }
