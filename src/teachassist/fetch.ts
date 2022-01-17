@@ -131,9 +131,9 @@ async function fetchCourseOverviews(credentials: TACredentials): Promise<CourseO
   );
 
   const $ = cheerio.load(await res.text());
-  const courses = $('.green_border_message > div > table > tbody > tr[bgcolor]').toArray();
+  const courseOverviews = $('.green_border_message > div > table > tbody > tr[bgcolor]').toArray();
 
-  return courses.map((course) => parseCourseOverviewHTML(cheerio.html(course)));
+  return courseOverviews.map((element) => parseCourseOverviewHTML(cheerio.html(element)));
 }
 
 async function fetchCourseDetailsPage(subjectId: string, credentials: TACredentials): Promise<CheerioAPI> {
