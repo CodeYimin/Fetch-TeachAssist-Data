@@ -19,6 +19,9 @@ router.post('/', async (req, res) => {
     if (e.message === 'Invalid login credentials') {
       res.sendStatus(401);
       return;
+    } else {
+      res.sendStatus(500);
+      return;
     }
   }
 });
