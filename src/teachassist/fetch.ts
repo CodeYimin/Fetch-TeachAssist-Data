@@ -8,7 +8,7 @@ async function fetchTACredentials(credentials: LoginCredentials): Promise<TACred
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: `subject_id=0&username=${credentials.username}&password=${credentials.password}&submit=Login`,
+    body: `username=${credentials.username}&password=${credentials.password}`,
     redirect: 'manual'
   });
 
