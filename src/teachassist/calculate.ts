@@ -62,13 +62,12 @@ export function fixUnknownMarkStrands(course: Course): void {
 
   // If marks are not received or there's no weight, 
   // that means it doesn't affect the average so is impossible to bruteforce it's strand
-  // But it also doesn't affect bruteforce
   const marksToFix = unknownStrandMarks.filter((mark) => mark.marksReceived !== null && mark.weight);
   if (!marksToFix.length) {
     return;
   }
 
-  // If a course has assignments it will have strands
+  // If a course has assignments it must have strands
   const actualOtherAverage = course.strands!.find((strand) => strand.strand === 'o')!.studentAchievement!;
   const actualFinalAverage = course.strands!.find((strand) => strand.strand === 'f')!.studentAchievement!;
 
@@ -77,7 +76,7 @@ export function fixUnknownMarkStrands(course: Course): void {
   // All unique combinations of marks
   const subsets = getAllSubsets(marksToFix);
   subsets.forEach((subset) => {
-    // Combination of hypothetical other marks and final marks to test
+    // Possible combination of other marks and final marks to test
     const testOtherMarks = subset;
     const testFinalMarks = marksToFix.filter((mark) => !testOtherMarks.includes(mark));
     
