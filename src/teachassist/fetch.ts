@@ -124,8 +124,8 @@ function parseCourseStrandHTML(html: string): StrandDetails {
 
   return {
     strand: strandsByName[match[1]],
-    weight: match[2] ? parseFloat(match[2]) / 100 : null,
-    courseWeight: parseFloat(match[3]) / 100,
+    weight: match[2] ? parseFloat(match[2]) : null,
+    courseWeight: parseFloat(match[3]),
     studentAchievement: parseFloat(match[4]),
   }
 }
