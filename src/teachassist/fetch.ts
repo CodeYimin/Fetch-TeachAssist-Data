@@ -1,5 +1,5 @@
 import cheerio, { CheerioAPI } from 'cheerio';
-import { Assignment, Strand, StrandMark, StrandDetails as StrandDetails, Course, CourseOverview, LoginCredentials, TACredentials } from '.';
+import { Assignment, Strand, StrandMark, StrandDetails, Course, CourseOverview, LoginCredentials, TACredentials } from '.';
 import fetch from 'node-fetch';
 import { decode } from 'html-entities';
 

@@ -1,4 +1,4 @@
-import { Assignment, Course, fetchCourses, Strand, StrandMark } from ".";
+import { Assignment, Course, Strand, StrandMark } from ".";
 import { getAllSubsets } from "../utils";
 
 function calculateWeightedAverage(marks: StrandMark[]): number {
