@@ -17,36 +17,37 @@ export interface ExtraMark {
 
 export interface CourseOverview {
   courseCode: string;
-  courseName: string;
+  courseName: string | null;
   block: string;
-  room: string;
+  room: string | null;
   startDate: string;
   endDate: string;
-  subjectId: string;
-  currentMark: number;
-  extraMarks: ExtraMark[];
+  subjectId: string | null;
+  currentMark: number | null;
+  extraMarks: ExtraMark[] | null;
 }
 
 export interface Assignment {
   name: string;
-  marks: StrandMark[];
+  strandMarks: StrandMark[];
 }
 
 export interface StrandMark {
-  marksReceived?: number;
+  percentMark: number | null;
+  marksReceived: number | null;
   marksTotal: number;
-  weight?: number;
+  weight: number | null;
   strand: Strand;
 }
 
-export interface StrandWeighting {
+export interface StrandDetails {
   strand: Strand,
-  weighting?: number;
-  courseWeighting: number;
+  weight: number | null;
+  courseWeight: number;
   studentAchievement: number;
 }
 
 export interface Course extends CourseOverview {
-  assignments: Assignment[];
-  weightings: StrandWeighting[];
+  assignments: Assignment[] | null;
+  strands: StrandDetails[] | null;
 }

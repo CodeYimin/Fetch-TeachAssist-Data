@@ -1,5 +1,5 @@
 import express from "express";
-import { fetchCourses, LoginCredentials } from "../teachassist";
+import { fixUnknownMarkStrands, fetchCourses, LoginCredentials } from "../teachassist";
 
 const router = express.Router();
 
@@ -13,6 +13,20 @@ router.post('/', async (req, res) => {
 
   try {
     const courses = await fetchCourses(credentials);
+
+    courses.forEach((course) => {
+      try {
+        fixUnknownMarkStrands(course);
+      } catch (e) {
+        if (
+          (e as any).message !== 'No solution found' && 
+          (e as any).message !== 'Multiple solutions found'
+        ) {
+          console.log(e);
+        }
+      }
+    });
+
     res.send(courses);
     return;
   } catch (e: any) {

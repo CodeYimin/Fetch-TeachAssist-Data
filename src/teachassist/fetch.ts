@@ -1,6 +1,7 @@
 import cheerio, { CheerioAPI } from 'cheerio';
-import { Assignment, Strand, StrandMark, StrandWeighting, Course, CourseOverview, LoginCredentials, TACredentials } from '.';
+import { Assignment, Strand, StrandMark, StrandDetails as StrandDetails, Course, CourseOverview, LoginCredentials, TACredentials } from '.';
 import fetch from 'node-fetch';
+import { decode } from 'html-entities';
 
 async function fetchTACredentials(credentials: LoginCredentials): Promise<TACredentials> {
   const res = await fetch('https://ta.yrdsb.ca/yrdsb/index.php', {
@@ -38,26 +39,28 @@ function parseCourseOverviewHTML(html: string): CourseOverview {
     '>([^>]*?):(.*?)<br>.*?' +
     'Block:(.*?)-rm.(.*?)<.*?' +
     '>([^>]*?)~(.*?)<.*?' +
-    'subject_id=(.*?)&.*?' +
-    'currentmark=(.*?)%';
+    '(?:subject_id=(.*?)&.*?' +
+    'currentmark=(.*?)%|Pleaseseeteacher)';
   const regex = new RegExp(regexString);
-  const match = html.replace(/\s/g, '').match(regex)!;
+  const match = decode(html).replace(/\s/g, '').match(regex)!;
 
   const extraMarksRegexString = 
     '<span.*?>\\s*(.*?):.*?(\\d*?)%';
   const extraMarksRegex = new RegExp(extraMarksRegexString, 'g');
-  const extraMarksMatches = html.matchAll(extraMarksRegex);
+  const extraMarksMatches = [...decode(html).matchAll(extraMarksRegex)];
 
   return {
     courseCode: match[1],
-    courseName: match[2],
+    courseName: match[2] || null,
     block: match[3],
-    room: match[4],
+    room: match[4] || null,
     startDate: match[5],
     endDate: match[6],
-    subjectId: match[7],
-    currentMark: parseFloat(match[8]),
-    extraMarks: [...extraMarksMatches].map((match) => ({ name: match[1], value: parseInt(match[2]) })),
+    subjectId: match[7] || null,
+    currentMark: match[8] ? parseFloat(match[8]) : null,
+    extraMarks: extraMarksMatches.length
+      ? extraMarksMatches.map((match) => ({ name: match[1], value: parseInt(match[2]) }))
+      : null,
   }
 }
 
@@ -70,32 +73,39 @@ function parseAssignmentHTML(html: string): Assignment {
     'dedede': 'o/f',
   };
 
-  const assignmentName = html.match(/<td.*?>(.+?)<\/td/)![1];
+  const assignmentName = decode(html).match(/<td.*?>(.+?)<\/td/)![1];
 
   const marksRegexString = 
-    '<td[^>]*?bgcolor="#?(.*?)".*?' +
-    '<td.*?' +
+    'bgcolor="#?([^"]*?)"(?:(?!/td).)*?' +
+    'bgcolor(?:(?!/td).)*?' +
     '([\\d\.]*?) / ([\\d\.]*?) =.*?' +
     '(?:weight=(\\d+)|no weight)'
   const marksRegex = new RegExp(marksRegexString, 'g');
-  const marksMatches = html.replace(/[\r\n\t]/g, '').matchAll(marksRegex)!;
+  const marksMatches = [...decode(html).replace(/[\r\n\t]/g, '').matchAll(marksRegex)];
 
-  const marks: StrandMark[] = [...marksMatches].map((match) => {
+  const marks: StrandMark[] = marksMatches.map((match) => {
+    const strand = strandsByColor[match[1]];
+    const marksReceived = match[2] ? parseFloat(match[2]) : null;
+    const marksTotal = parseFloat(match[3]);
+    const percentMark = marksReceived !== null ? marksReceived / marksTotal * 100 : null;
+    const weight = match[4] ? parseInt(match[4]) : null;
+
     return {
-      strand: strandsByColor[match[1]],
-      marksReceived: match[2] ? parseFloat(match[2]) : undefined,
-      marksTotal: parseFloat(match[3]),
-      weight: match[4] ? parseInt(match[4]) : undefined,
+      strand,
+      marksReceived,
+      marksTotal,
+      percentMark,
+      weight,
     }
   });
 
   return {
     name: assignmentName,
-    marks,
+    strandMarks: marks,
   }
 }
 
-function parseStrandWeightingHTML(html: string): StrandWeighting {
+function parseCourseStrandHTML(html: string): StrandDetails {
   const strandsByName: { [key: string]: Strand } = {
     'Knowledge/Understanding': 'k',
     'Thinking': 't',
@@ -110,12 +120,12 @@ function parseStrandWeightingHTML(html: string): StrandWeighting {
     '(?:<td.*?>(.*?)%</td.*?|)' +
     '<td.*?>(.*?)%</td.*?'.repeat(2);
   const regex = new RegExp(regexString);
-  const match = html.replace(/\s/g, '').match(regex)!;
+  const match = decode(html).replace(/\s/g, '').match(regex)!;
 
   return {
     strand: strandsByName[match[1]],
-    weighting: match[2] ? parseFloat(match[2]) / 100 : undefined,
-    courseWeighting: parseFloat(match[3]) / 100,
+    weight: match[2] ? parseFloat(match[2]) / 100 : null,
+    courseWeight: parseFloat(match[3]) / 100,
     studentAchievement: parseFloat(match[4]),
   }
 }
@@ -149,12 +159,12 @@ async function fetchCourseDetailsPage(subjectId: string, credentials: TACredenti
   return cheerio.load(await res.text())
 }
 
-async function fetchCourseWeightings(subjectId: string, credentials: TACredentials): Promise<StrandWeighting[]> {
+async function fetchCourseStrands(subjectId: string, credentials: TACredentials): Promise<StrandDetails[]> {
   const $ = await fetchCourseDetailsPage(subjectId, credentials);
 
-  const weightings = $('.green_border_message > div > table > tbody > tr > td > table > tbody > tr[bgcolor]').toArray();
+  const weights = $('.green_border_message > div > table > tbody > tr > td > table > tbody > tr[bgcolor]').toArray();
 
-  return weightings.map((element) => parseStrandWeightingHTML(cheerio.html(element)));
+  return weights.map((element) => parseCourseStrandHTML(cheerio.html(element)));
 }
 
 async function fetchCourseAssignments(subjectId: string, credentials: TACredentials): Promise<Assignment[]> {
@@ -164,7 +174,7 @@ async function fetchCourseAssignments(subjectId: string, credentials: TACredenti
     .toArray()
     .filter((value, index) => index % 2 !== 0);
 
-  return assignments.map((element) => parseAssignmentHTML(cheerio.html(element)));
+  return assignments.map((element, index) => parseAssignmentHTML(cheerio.html(element)));
 }
 
 export async function fetchCourses(credentials: LoginCredentials): Promise<Course[]> {
@@ -175,12 +185,18 @@ export async function fetchCourses(credentials: LoginCredentials): Promise<Cours
   
   await Promise.all(courseOverviews.map(async (overview) => {
     const subjectId = overview.subjectId;
-    const assignments = await fetchCourseAssignments(subjectId, taCredentials);
-    const weightings = await fetchCourseWeightings(subjectId, taCredentials);
+
+    const assignments = subjectId
+      ? await fetchCourseAssignments(subjectId, taCredentials)
+      : null;
+    const strands = subjectId
+      ? await fetchCourseStrands(subjectId, taCredentials)
+      : null;
+
     courses.push({
       ...overview,
       assignments,
-      weightings,
+      strands,
     });
   }));
 
