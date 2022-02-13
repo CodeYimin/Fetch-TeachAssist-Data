@@ -1,6 +1,6 @@
-import axios from "axios";
 import cheerio, { CheerioAPI } from "cheerio";
 import { decode } from "html-entities";
+import fetch from "node-fetch";
 import {
   Assignment,
   Course,
@@ -15,24 +15,21 @@ import {
 async function fetchTACredentials(
   credentials: LoginCredentials
 ): Promise<TACredentials> {
-  const res = await axios.post(
-    "https://ta.yrdsb.ca/yrdsb/index.php",
-    `username=${credentials.username}&password=${credentials.password}`,
-    {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      maxRedirects: 0,
-      validateStatus: null,
-    }
-  );
+  const res = await fetch("https://ta.yrdsb.ca/yrdsb/index.php", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: `username=${credentials.username}&password=${credentials.password}`,
+    redirect: "manual",
+  });
 
-  const redirectUrl = res.headers.location;
+  const redirectUrl = res.headers?.get("location");
   if (redirectUrl === "https://ta.yrdsb.ca/live/index.php?error_message=3") {
     throw new Error("Invalid login credentials");
   }
 
-  const setCookies = res.headers["set-cookie"]?.join();
+  const setCookies = res.headers?.get("set-cookie");
 
   const studentId = setCookies?.match(/student_id=(.*?);/)?.at(1);
   const sessionToken = setCookies
@@ -166,16 +163,12 @@ function parseCourseStrandHTML(html: string): StrandDetails {
 async function fetchCourseOverviews(
   credentials: TACredentials
 ): Promise<CourseOverview[]> {
-  const res = await axios.get(
+  const res = await fetch(
     `https://ta.yrdsb.ca/live/students/listReports.php?student_id=${credentials.studentId}`,
-    {
-      headers: {
-        Cookie: `session_token=${credentials.sessionToken}`,
-      },
-    }
+    { headers: { Cookie: `session_token=${credentials.sessionToken}` } }
   );
 
-  const $ = cheerio.load(res.data);
+  const $ = cheerio.load(await res.text());
   const courseOverviews = $(
     ".green_border_message > div > table > tbody > tr[bgcolor]"
   ).toArray();
@@ -189,7 +182,7 @@ async function fetchCourseDetailsPage(
   subjectId: string,
   credentials: TACredentials
 ): Promise<CheerioAPI> {
-  const res = await axios.get(
+  const res = await fetch(
     `https://ta.yrdsb.ca/live/students/viewReport.php?subject_id=${subjectId}&student_id=${credentials.studentId}`,
     {
       headers: {
@@ -198,7 +191,7 @@ async function fetchCourseDetailsPage(
     }
   );
 
-  return cheerio.load(res.data);
+  return cheerio.load(await res.text());
 }
 
 async function fetchCourseStrands(
